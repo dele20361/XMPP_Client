@@ -1,41 +1,47 @@
 const readline = require('readline');
 const XmppClient = require('./xmppClient')
+const { xml } = require("@xmpp/client");
+const { SimpleXMPP } = require('simple-xmpp');
 
 let cliente;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-const xmppOptions = {
-  service: "xmpp://alumchat.xyz:5222",
-  domain: "alumchat.xyz",
-  username: "paodeleon",
-  password: "pao",
-  tls: {
-    rejectUnauthorized: true,
-  }
-};
-
 async function start() {
-  const myClient = new XmppClient("paodeleon@alumchat.xyz", "pao");
+  const myClient = new XmppClient("paodeleon", "pao");
   await myClient.connect();
   cliente = myClient;
 }
 
 const displayMenu = () => {
-  console.log('Menu:');
+  console.log('\n\n---------------------------------------------');
+  console.log('                   MENU');
   console.log('1. Obtener información de contactos');
   console.log('2. Opción 2');
   console.log('3. Salir');
+  console.log('---------------------------------------------');
 }
 
 const handleChoice = async (choice) => {
   switch (choice) {
     case '1':
-      console.log('Mostrando información de contactos...');
-      cliente.getRoster();
+      console.log('\n\n\n 1) Mostrando información de contactos...');
+      const presenceStanza = xml(
+        "presence",
+        { from: 'paodeleon@alumchat.xyz' },
+        xml("show", {}, "away"), 
+        xml("status", {}, "Hola :)") 
+      );      
+    
+      cliente.send(presenceStanza);
+
       displayMenu();
       askForChoice();
       break;
@@ -47,7 +53,7 @@ const handleChoice = async (choice) => {
     case '3':
       console.log('Saliendo del programa');
       rl.close();
-      await xmpp.desconectar();
+      // await xmpp.desconectar();
       process.exit();
       break;
     default:
@@ -59,7 +65,7 @@ const handleChoice = async (choice) => {
 }
 
 const askForChoice = () => {
-  rl.question('Ingrese el número de opción: ', (choice) => {
+  rl.question('>> Ingrese el número de opción: ', (choice) => {
     handleChoice(choice);
   });
 }
@@ -67,3 +73,8 @@ const askForChoice = () => {
 start();
 displayMenu();
 askForChoice();
+
+
+// En resumen, este error "401" indica que el usuario "alumchat.xyz/m1p2b6h33" no tiene las credenciales de autenticación 
+// correctas o no está autorizado para realizar la acción que intentó, 
+// posiblemente debido a un problema con las credenciales de inicio de sesión o permisos insuficientes en el servidor XMPP.
