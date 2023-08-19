@@ -6,6 +6,7 @@ class XmppClient {
     this.jid = jid;
     this.password = password;
     this.roster = new Set();
+    this.completeJID = ""
   }
 
   async connect() {
@@ -21,17 +22,19 @@ class XmppClient {
       });
 
       this.xmpp.on('online', async (address) => {
-        console.log(`Conectado! Us uario: ${address.toString()}`);
-      });
-
-      this.xmpp.on("roster", (items) => {
-        for (const item of items) {
-          this.roster.add(item.jid);
-        }
+        this.completeJID = address.toString();
       });
 
       this.xmpp.on("stanza", (stanza) => {
-        this.manejarPresencia(stanza);
+        // Llamar según tipo de stanza
+        // de presencia:
+        if (stanza.is("presence")) {
+          this.manejarPresencia(stanza);
+        }
+        // de iq
+        else if (stanza.is("iq")) {
+          this.getRoster(stanza);
+        }
       });
 
       this.xmpp.start().catch(console.error);
@@ -39,56 +42,72 @@ class XmppClient {
       console.log("@! Error en conección.");
     }
   }
+  
+  async disconnect() {
+    try {
+      if (this.xmpp) {
+        await this.xmpp.stop();
+        console.log("Desconectado del servidor.");
+      } else {
+        console.log("No estás conectado.");
+      }
+    } catch (error) {
+      console.log("@! Error al desconectarse:", error);
+    }
+  }
 
   async send(stanza) {
     this.xmpp.send(stanza);
   }
 
-  manejarPresencia(stanza) {
-    if (stanza.is("presence")) {
-      const presenceType = stanza.attrs.type;
-      let fromJID;
-  
-      if (stanza.attrs.from) {
-        fromJID = stanza.attrs.from;
-      } else if (stanza.parent && stanza.parent.attrs && stanza.parent.attrs.from) {
-        fromJID = stanza.parent.attrs.from;
-      } else {
-        console.log("No se pudo encontrar el JID en la stanza de presencia.");
-        return;
-      }
-  
-      const showElement = stanza.getChild("show");
-      const statusElement = stanza.getChild("status");
-  
-      let estado = "";
-      if (presenceType === "unavailable") {
-        estado = "Offline";
-      } else {
-        const show = showElement ? showElement.getText() : "";
-        if (show === "chat") {
-          estado = "Available";
-        } else if (show) {
-          estado = show;
-        } else {
-          estado = "Available";
+  getRoster(stanza) {
+    // Verificar id para obtener info de roter
+    const stanzaId = stanza.attrs.id;
+
+    if (stanzaId === 'getRoster') {
+
+      const queryElement = stanza.getChild('query', 'jabber:iq:roster');
+
+      if (queryElement) {
+        const items = queryElement.getChildren('item');
+
+        // Añadir jid a set de roster
+        for (const item of items) {
+          const jid = item.attrs.jid;
+          this.roster.add(jid);
         }
+
       }
-  
-      const mensajeEstado = statusElement ? statusElement.getText() : "Sin mensaje de estado";
-  
-      console.log(` •  Detalles de ${fromJID}:`);
-      console.log(`    Estado: ${estado}`);
-      console.log(`    Mensaje de estado: ${mensajeEstado}`);
-    } else if (stanza.is("iq") && stanza.attrs.type === "result" && stanza.getChild("query", "jabber:iq:roster")) {
-      console.log("Llamada a iq handler");
-    } else if (stanza.is("presence") && stanza.attrs.type === "error") {
-      const errorElement = stanza.getChild("error");
-      console.log("Error en la respuesta de roster:", errorElement.toString());
     }
   }
-  
-  
+
+  manejarPresencia(stanza) {
+    const stanzaId = stanza.attrs.id;
+
+    const fromJID = stanza.attrs.from;
+    const presenceType = stanza.attrs.type;
+    const statusElement = stanza.getChild("status");
+
+    let estado = "";
+    if (presenceType === "unavailable") {
+      estado = "Offline";
+    } else {
+      const show = stanza.getChildText("show");
+      if (show === "chat") {
+        estado = "Available";
+      } else if (show) {
+        estado = show;
+      } else {
+        estado = "Available";
+      }
+    }
+
+    const mensajeEstado = statusElement ? statusElement.getText() : "Sin mensaje de estado";
+
+    console.log(`\n •  Detalles de ${fromJID}:`);
+    console.log(`    Estado: ${estado}`);
+    console.log(`    Mensaje de estado: ${mensajeEstado}`);
+  }
 
 }
 

@@ -1,7 +1,8 @@
 const readline = require('readline');
 const XmppClient = require('./xmppClient')
-const { xml } = require("@xmpp/client");
+const { xml, client } = require("@xmpp/client");
 const { SimpleXMPP } = require('simple-xmpp');
+const stanzas = require("./stanzas");
 
 let cliente;
 
@@ -21,7 +22,7 @@ async function start() {
 }
 
 const displayMenu = () => {
-  console.log('\n\n---------------------------------------------');
+  console.log('\n\n------------------------------------------');
   console.log('                   MENU');
   console.log('1. Obtener información de contactos');
   console.log('2. Opción 2');
@@ -32,30 +33,38 @@ const displayMenu = () => {
 const handleChoice = async (choice) => {
   switch (choice) {
     case '1':
+
       console.log('\n\n\n 1) Mostrando información de contactos...');
-      const presenceStanza = xml(
-        "presence",
-        { from: 'paodeleon@alumchat.xyz' },
-        xml("show", {}, "away"), 
-        xml("status", {}, "Hola :)") 
-      );      
-    
-      cliente.send(presenceStanza);
+
+      const petition = stanzas.rosterRequest(this.completeJID);
+      await cliente.send(petition);
+      roster = cliente.roster;
+      const myPresence = stanzas.presenceStanza("available", "hola!!!");
+      await cliente.send(myPresence);
+  
+      for (const jid of roster) {
+        console.log(jid);
+        const contactStanza = stanzas.getInfoContact(jid);
+        await cliente.send(contactStanza);
+      }
 
       displayMenu();
       askForChoice();
       break;
+
     case '2':
       console.log('Seleccionaste la opción 2');
       displayMenu();
       askForChoice();
       break;
+
     case '3':
       console.log('Saliendo del programa');
       rl.close();
-      // await xmpp.desconectar();
+      await cliente.disconnect();
       process.exit();
       break;
+
     default:
       console.log('Opción no válida');
       displayMenu();
@@ -73,8 +82,3 @@ const askForChoice = () => {
 start();
 displayMenu();
 askForChoice();
-
-
-// En resumen, este error "401" indica que el usuario "alumchat.xyz/m1p2b6h33" no tiene las credenciales de autenticación 
-// correctas o no está autorizado para realizar la acción que intentó, 
-// posiblemente debido a un problema con las credenciales de inicio de sesión o permisos insuficientes en el servidor XMPP.
