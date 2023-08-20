@@ -1,16 +1,22 @@
 const { client, xml } = require("@xmpp/client");
+const stanzas = require('./stanzas');
 
 class XmppClient {
   constructor(jid, password) {
+    // Configuración para deshabilitar el rechazo de certificados no autorizados (¡Esto no es seguro en producción!)
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+    // Propiedades del cliente XMPP
     this.jid = jid;
     this.password = password;
     this.roster = new Set();
-    this.completeJID = ""
+    this.completeJID = "";
+    this.contacts = new Set();
   }
 
   async connect() {
     try {
+      // Crear conexión XMPP
       this.xmpp = client({
         service: "xmpp://alumchat.xyz:5222",
         domain: "alumchat.xyz",
@@ -21,28 +27,18 @@ class XmppClient {
         },
       });
 
+      // Manejar eventos
       this.xmpp.on('online', async (address) => {
         this.completeJID = address.toString();
       });
 
-      this.xmpp.on("stanza", (stanza) => {
-        // Llamar según tipo de stanza
-        // de presencia:
-        if (stanza.is("presence")) {
-          this.manejarPresencia(stanza);
-        }
-        // de iq
-        else if (stanza.is("iq")) {
-          this.getRoster(stanza);
-        }
-      });
-
-      this.xmpp.start().catch(console.error);
+      // Iniciar la conexión
+      await this.xmpp.start();
     } catch (error) {
-      console.log("@! Error en conección.");
+      console.log("@! Error en la conexión.");
     }
   }
-  
+
   async disconnect() {
     try {
       if (this.xmpp) {
@@ -52,7 +48,7 @@ class XmppClient {
         console.log("No estás conectado.");
       }
     } catch (error) {
-      console.log("@! Error al desconectarse:", error);
+      console.log("@! Error al desconectarse.");
     }
   }
 
@@ -60,30 +56,71 @@ class XmppClient {
     this.xmpp.send(stanza);
   }
 
-  getRoster(stanza) {
-    // Verificar id para obtener info de roter
+  getContactsInfo() {
+    return new Promise((resolve, reject) => {
+      const rosterPromise = this.getRoster();
+      const presencePromise = this.sendPresenceRequests();
+
+      Promise.all([rosterPromise, presencePromise])
+        .then(() => {
+          resolve();
+        })
+        .catch((error) => {
+          reject(error);
+        });
+    });
+  }
+
+  handleRoster(stanza) {
     const stanzaId = stanza.attrs.id;
 
     if (stanzaId === 'getRoster') {
 
       const queryElement = stanza.getChild('query', 'jabber:iq:roster');
-
+      
       if (queryElement) {
         const items = queryElement.getChildren('item');
 
-        // Añadir jid a set de roster
+        // Agregar JID al conjunto de roster
         for (const item of items) {
           const jid = item.attrs.jid;
           this.roster.add(jid);
         }
-
       }
     }
   }
 
-  manejarPresencia(stanza) {
-    const stanzaId = stanza.attrs.id;
+  getRoster() {
+    return new Promise((resolve, reject) => {
+      const petition = stanzas.rosterRequest(this.completeJID);
+      this.xmpp.send(petition);
 
+      this.xmpp.on("stanza", (stanza) => {
+        if (stanza.is("iq")) {
+          this.handleRoster(stanza);
+          resolve();
+        }
+      });
+    });
+  }
+
+  sendPresenceRequests() {
+    return new Promise((resolve, reject) => {
+      const myPresence = stanzas.presenceStanza("available", "Hola amigos!");
+      this.xmpp.send(myPresence);
+
+      this.xmpp.on("stanza", (stanza) => {
+        if (stanza.is("presence")) {
+          this.handlePresenceStanza(stanza);
+          resolve();
+        }
+      });
+
+    });
+  }
+
+
+  handlePresenceStanza(stanza) {
     const fromJID = stanza.attrs.from;
     const presenceType = stanza.attrs.type;
     const statusElement = stanza.getChild("status");
@@ -104,11 +141,29 @@ class XmppClient {
 
     const mensajeEstado = statusElement ? statusElement.getText() : "Sin mensaje de estado";
 
-    console.log(`\n •  Detalles de ${fromJID}:`);
-    console.log(`    Estado: ${estado}`);
-    console.log(`    Mensaje de estado: ${mensajeEstado}`);
-  }
+    // Datos del nuevo contacto
+    const newContact = {
+      from: fromJID,
+      state: estado,
+      bio: mensajeEstado
+    };
 
+    // Buscar y eliminar el contacto antiguo (si existe)
+    let contactToDelete = null;
+    this.contacts.forEach(contact => {
+      if (contact.from === fromJID) {
+        contactToDelete = contact;
+      }
+    });
+
+    if (contactToDelete !== null) {
+      this.contacts.delete(contactToDelete);
+    }
+
+    // Agregar el nuevo contacto
+    this.contacts.add(newContact);
+
+  }
 }
 
 module.exports = XmppClient;

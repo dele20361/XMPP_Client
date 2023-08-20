@@ -33,6 +33,7 @@ const stanzas = {
         const contactStanza = xml(
             "presence",
             {
+                id: "getContactsInfo",
                 to: jid,
                 type: "get"
             }
