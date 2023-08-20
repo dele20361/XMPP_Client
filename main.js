@@ -6,9 +6,13 @@ const { SimpleXMPP } = require('simple-xmpp');
 let cliente;
 let jid;
 let password;
+let contactos;
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+// Función para obtener la entrada del usuario como promesa
+function questionAsync(prompt) {
+  return new Promise((resolve) => {
+    rl.question(prompt, resolve);
+  });
 }
 
 const rl = readline.createInterface({
@@ -25,6 +29,7 @@ const displayMainMenu = () => {
   console.log('4. Chat privado');
   console.log('5. Chat grupal');
   console.log('6. Editar mensaje de presencia');
+  console.log('7. Cerrar Sesión');
   console.log('---------------------------------------------');
 };
 
@@ -47,16 +52,24 @@ const handleLoginChoice = async (choice) => {
       break;
 
     case '2':
-      rl.question('>> Ingrese su JID: ', (jidInput) => {
-        jid = jidInput;
-        rl.question('>> Ingrese su contraseña: ', (passwordInput) => {
-          password = passwordInput;
-          start();
-          displayMainMenu();
-          askForChoice();
+      (async () => {
+        rl.question('>> Ingrese su JID: ', async (jidInput) => {
+          jid = jidInput;
+          rl.question('>> Ingrese su contraseña: ', async (passwordInput) => {
+            password = passwordInput;
+            const isConnected = await start();
+            if (isConnected === 0) {
+              displayMainMenu();
+              askForChoice();
+            } else {
+              rl.close();
+              process.exit(0);
+            }
+          });
         });
-      });
+      })();
       break;
+      
 
     default:
       console.log('Opción no válida');
@@ -81,7 +94,7 @@ const handleChoice = async (choice) => {
       await cliente.getContactsInfo();
 
       // Mostrar detalles de presencia
-      const contactos = cliente.contacts;
+      contactos = cliente.contacts;
       contactos.forEach((contacto) => {
         console.log(`\n •  Detalles de ${contacto.from}:`);
         console.log(`    Estado: ${contacto.state}`);
@@ -99,9 +112,38 @@ const handleChoice = async (choice) => {
       break;
 
     case '3':
-      console.log('Saliendo del programa');
+      console.log('3) Detalles de contacto de un usuario');
+
+      // Solicitar JID
+      const searchJID = await questionAsync(">> Ingrese el JID del usuario a buscar: ");
+
+      // Mostrar info
+      await cliente.getContactsInfo();
+
+      const contactos = cliente.contacts;
+      contactos.forEach((contacto) => {
+        if (contacto.from.split('@')[0] === searchJID) {
+          console.log(`\n •  Detalles de ${contacto.from}:`);
+          console.log(`    Estado: ${contacto.state}`);
+          console.log(`    Mensaje de estado: ${contacto.bio}`);
+        }
+      });
+
+      displayMainMenu();
+      askForChoice();
+      break;
+
+    case '5':
+      
+
+      displayMainMenu();
+      askForChoice();
+      break;
+
+    case '7':
       rl.close();
       await cliente.disconnect();
+      console.log(`Adiós ${jid}!`);
       process.exit();
       break;
 
@@ -121,8 +163,10 @@ const askForChoice = () => {
 
 async function start() {
   const myClient = new XmppClient(jid, password);
-  await myClient.connect();
+  const isConnected = await myClient.connect();
   cliente = myClient;
+
+  return isConnected;
 }
 
 displayLoginMenu();

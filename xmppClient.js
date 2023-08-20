@@ -34,8 +34,13 @@ class XmppClient {
 
       // Iniciar la conexión
       await this.xmpp.start();
+
+      return 0;
+
     } catch (error) {
-      console.log("@! Error en la conexión.");
+      console.error("@! JID o contraseña incorrecta.\n\n");
+
+      return 1;
     }
   }
 
