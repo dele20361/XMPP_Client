@@ -3,7 +3,7 @@ const stanzas = require('./stanzas');
 
 class XmppClient {
   constructor(jid, password) {
-    // Configuración para deshabilitar el rechazo de certificados no autorizados (¡Esto no es seguro en producción!)
+    // Configuración para deshabilitar el rechazo de certificados no autorizados.
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
     // Propiedades del cliente XMPP
@@ -39,6 +39,7 @@ class XmppClient {
     }
   }
 
+
   async disconnect() {
     try {
       if (this.xmpp) {
@@ -52,11 +53,17 @@ class XmppClient {
     }
   }
 
+
   async send(stanza) {
     this.xmpp.send(stanza);
   }
 
+
   getContactsInfo() {
+    /*
+      Manejo de promesas para opción 1 de menú.
+      Función llamada desde menú.
+    */
     return new Promise((resolve, reject) => {
       const rosterPromise = this.getRoster();
       const presencePromise = this.sendPresenceRequests();
@@ -72,6 +79,10 @@ class XmppClient {
   }
 
   handleRoster(stanza) {
+    /*
+      Handler para añadir contactos a roster.
+      Función utilizada en getRoster.
+    */
     const stanzaId = stanza.attrs.id;
 
     if (stanzaId === 'getRoster') {
@@ -91,6 +102,10 @@ class XmppClient {
   }
 
   getRoster() {
+    /*
+      Envío de stanza para obtener roster.
+      Función utilizada en getContactsInfo.
+    */
     return new Promise((resolve, reject) => {
       const petition = stanzas.rosterRequest(this.completeJID);
       this.xmpp.send(petition);
@@ -105,6 +120,10 @@ class XmppClient {
   }
 
   sendPresenceRequests() {
+    /*
+      Enviar presencia y obtener presencia de contactos.
+      Función utilizada en getContactsInfo.
+    */
     return new Promise((resolve, reject) => {
       const myPresence = stanzas.presenceStanza("available", "Hola amigos!");
       this.xmpp.send(myPresence);
@@ -121,6 +140,10 @@ class XmppClient {
 
 
   handlePresenceStanza(stanza) {
+    /*
+      Obtener información de presencia de contactos y alamcenarla.
+      Función utilizada en sendPresenceRequest.
+    */
     const fromJID = stanza.attrs.from;
     const presenceType = stanza.attrs.type;
     const statusElement = stanza.getChild("status");
