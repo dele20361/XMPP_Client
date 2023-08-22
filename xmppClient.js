@@ -32,10 +32,46 @@ class XmppClient {
         this.completeJID = address.toString();
       });
 
-      // Agregar el listener para las invitaciones
-      this.xmpp.on("stanza", async () => {
-        await this.handleInvitation
+      this.xmpp.on("stanza", (stanza) => {
+        if (stanza.is('presence')) {
+          const from = stanza.attrs.from.split("@")[0];
+          const show = stanza.getChildText("show");
+          let estado2;
+          if (show === "chat") {
+            estado2 = "Available";
+          } else if (show) {
+            estado2 = show;
+          } else {
+            estado2 = "Available";
+          }
+
+          // Verificar el atributo 'type' en la stanza de presencia
+          if (stanza.is('message') && stanza.attrs.id === 'privateChatMessage') {
+            const messageBody = stanza.getChildText('body');
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Mensaje de ${from}: ${messageBody}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+          }
+          else if (stanza.attrs.type === 'unavailable') {
+            estado2 = "unavailable"
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} ahora no está disponible\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+          } else if (estado2 === 'Available') {
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} ahora está disponible\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+          } else if (stanza.attrs.type === 'subscribe') {
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} está solicitando suscripción\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+          } else if (stanza.attrs.type == 'chat') {       
+            // Recibir archivos adjuntos
+            const coded_data = stanza.getChildText('attachment')
+            if (coded_data) {
+                const decodedData = Buffer.from(coded_data, 'base64');
+                const filepath = `./files/${body}`
+                fs.writeFileSync(filepath, decodedData);
+                console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Archivo de ${from} guardado en ${filepath}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`)
+            }
+          }
+        }
       });
+      
+
+
 
       // Iniciar la conexión
       await this.xmpp.start();
@@ -81,6 +117,7 @@ class XmppClient {
     });
   }
 
+
   handleInvitation = (stanza) => {
     if (
       stanza.is("message") &&
@@ -120,6 +157,7 @@ class XmppClient {
     });
   }
 
+
   handleRoster(stanza) {
     /*
       Handler para añadir contactos a roster.
@@ -143,6 +181,7 @@ class XmppClient {
     }
   }
 
+
   getRoster() {
     /*
       Envío de stanza para obtener roster.
@@ -161,6 +200,7 @@ class XmppClient {
     });
   }
 
+
   sendPresenceRequests() {
     /*
       Enviar presencia y obtener presencia de contactos.
@@ -169,24 +209,30 @@ class XmppClient {
     return new Promise((resolve, reject) => {
       const myPresence = stanzas.presenceStanza("available", "Hola amigos!");
       this.xmpp.send(myPresence);
-  
+
       const presenceHandler = (stanza) => {
         if (stanza.is("presence")) {
           this.handlePresenceStanza(stanza);
           resolve();
         }
       };
-  
+
       this.xmpp.on("stanza", presenceHandler);
     });
   }
 
-  changePresenceMessage(message) {
-    return new Promise(async (resolve, reject) => {
+
+  async changePresenceMessage(message) {
+    try {
       const myPresence = stanzas.presenceStanza("available", message);
       await this.xmpp.send(myPresence);
-    });
+      console.log("!!! Cambio de estado a: ", message);
+    } catch (error) {
+      console.error(`\nXXX Error al enviar la presencia: ${error}`);
+    }
   }
+
+
 
   handlePresenceStanza(stanza) {
     /*
@@ -237,33 +283,59 @@ class XmppClient {
 
   }
 
-  async joinGroupChat(room) {
+
+  async createGroupChat(roomName, jid) {
     return new Promise(async (resolve, reject) => {
-      const joinRoomStanza = stanzas.joinRoom(room, this.jid);
-      await this.xmpp.send(joinRoomStanza);
+      try {
+        const createRoomStanza = stanzas.createChatRoomStanza(roomName, jid);
+        console.log(createRoomStanza.toString());
+        const createConfigStanza = stanzas.generateConfigStanza(roomName);
 
-      const presenceHandler = (stanza) => {
-        if (stanza.is("presence") && stanza.attrs.from === `${room}@conference.alumchat.xyz/${this.jid}`) {
-          const xElement = stanza.getChild("x", "http://jabber.org/protocol/muc#user");
-          if (xElement) {
-            const itemElement = xElement.getChild("item");
-            if (itemElement) {
-              const affiliation = itemElement.attrs.affiliation;
-              const role = itemElement.attrs.role;
-              console.log(`Bienvenido al groupchat ${room}!`);
-              console.log(`Affiliation: ${affiliation}`);
-              console.log(`Role: ${role}`);
-              this.xmpp.off("stanza", presenceHandler);
-              resolve();
-            }
-          }
-        }
-      };
+        await this.xmpp.send(createRoomStanza);
+        await this.xmpp.send(createConfigStanza);
 
-      this.xmpp.on("stanza", presenceHandler);
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
+
+
+  async privateMessage(message, to) {
+    try {
+      const privateMessageStanza = stanzas.privateMessage(message, to);
+      await this.xmpp.send(privateMessageStanza);
+      console.log("!!! Mensaje enviado",);
+    } catch (error) {
+      console.error(`\nXXX Error al enviar la presencia: ${error}`);
+    }
+  }
+
+
+  async groupMessage(message, room, from) {
+    try {
+      const groupMessageStanza = stanzas.groupMessage(message, room, from);
+      await this.xmpp.send(groupMessageStanza);
+      console.log("!!! Mensaje enviado",);
+    } catch (error) {
+      console.error(`\nXXX Error al enviar la presencia: ${error}`);
+    }
+  }
+
+
+  async sendFile(to, filePath) {
+    try {
+      const sendFileStanza = stanzas.sendFile(to, filePath);
+      await this.xmpp.send(sendFileStanza);
+      console.log("!!! Archivo enviado",);
+    } catch (error) {
+      console.error(`\nXXX Error al enviar la presencia: ${error}`);
+    }
+  }
+
 }
+
 
 module.exports = XmppClient;

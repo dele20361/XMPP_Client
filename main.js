@@ -27,9 +27,9 @@ const displayMainMenu = () => {
   console.log('2. Agregar un usuario.');
   console.log('3. Detalles de contacto de un usuario');
   console.log('4. Chat privado');
-  console.log('5. Chat grupal nuevo');
-  console.log('6. Chat grupal existente');
-  console.log('7. Editar mensaje de presencia');
+  console.log('5. Chat grupal');
+  console.log('6. Editar mensaje de presencia');
+  console.log('7. Enviar archivo');
   console.log('8. Cerrar Sesión');
   console.log('---------------------------------------------');
 };
@@ -124,6 +124,10 @@ const handleGroupchatOption = async (choice, room) => {
     case '2':
       displayGroupchatMenu();
       // Lógica para la opción 2
+      const message = await questionAsync(">> Ingresa el mensaje que deseas enviar: ");
+
+      await cliente.groupMessage(message, room, jid);
+
       break;
 
     case '3':
@@ -201,9 +205,21 @@ const handleChoice = async (choice) => {
       askForChoice();
       break;
 
-    case '6':
+    case '4':
+      const to = await questionAsync(">> Ingresa el destinatario: ");
+      const messagePrivate = await questionAsync(">> Ingresa el mensaje que deseas enviar: ");
+
+      await cliente.privateMessage(messagePrivate, to);
+
+      displayMainMenu();
+      askForChoice();
+
+      break;
+
+    case '5':
       const room = await questionAsync(">> Ingresa el nombre del room a unirte: ");
-      await cliente.joinGroupChat(room);
+      await cliente.createGroupChat(room, jid);
+
       
       // Activar listener de mensajes
       displayGroupchatMenu();
@@ -214,6 +230,20 @@ const handleChoice = async (choice) => {
         askForChoice();
       })();
       break;
+
+    case '6':
+      const message = await questionAsync(">> Ingresa el nuevo mensaje: ");
+      await cliente.changePresenceMessage(message);
+      displayMainMenu();
+      askForChoice();
+
+      break;
+
+    case '7':
+      const toFile = await questionAsync(">> Ingresa el destinatario: ");
+      const filePath = await questionAsync(">> Ingresa el path del archivo: ");
+
+      await cliente.sendFile(toFile, filePath);
 
     case '8':
       rl.close();
