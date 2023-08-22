@@ -32,13 +32,18 @@ class XmppClient {
         this.completeJID = address.toString();
       });
 
+      // Agregar el listener para las invitaciones
+      this.xmpp.on("stanza", async () => {
+        await this.handleInvitation
+      });
+
       // Iniciar la conexión
       await this.xmpp.start();
 
       return 0;
 
     } catch (error) {
-      console.error("@! JID o contraseña incorrecta.\n\n");
+      console.error("@! JID o contraseña incorrecta.\n\n", error);
 
       return 1;
     }
@@ -48,6 +53,9 @@ class XmppClient {
   async disconnect() {
     try {
       if (this.xmpp) {
+        const offline = stanzas.offline();
+        this.xmpp.send(offline);
+
         await this.xmpp.stop();
         console.log("Desconectado del servidor.");
       } else {
@@ -62,6 +70,35 @@ class XmppClient {
   async send(stanza) {
     this.xmpp.send(stanza);
   }
+
+
+  sendInvite = (to, room) => {
+    return new Promise(async (resolve, reject) => {
+      const stanza = stanzas.addUserToRoom(to, room);
+      await this.xmpp.send(stanza);
+      resolve();
+      console.log(`\n!!! Invitación a ${to} para unirse a ${room} enviada exitosamente!`);
+    });
+  }
+
+  handleInvitation = (stanza) => {
+    if (
+      stanza.is("message") &&
+      stanza.getChild("x", "http://jabber.org/protocol/muc#user") &&
+      stanza.getChild("x", "jabber:x:conference")
+    ) {
+      const inviteFrom = stanza.getChild("x").getChild("invite").attrs.from;
+      const roomJID = stanza.attrs.from;
+
+      console.log(`\n!!! Recibiste una invitación para unirte a la sala ${roomJID} de ${inviteFrom}`);
+
+      // Aceptar la invitación automáticamente
+      const acceptStanza = stanzas.acceptGroupInvite(roomJID);
+      this.xmpp.send(acceptStanza);
+
+      console.log(`   Invitación aceptada automáticamente para la sala ${roomJID}`);
+    }
+  };
 
 
   getContactsInfo() {
@@ -93,7 +130,7 @@ class XmppClient {
     if (stanzaId === 'getRoster') {
 
       const queryElement = stanza.getChild('query', 'jabber:iq:roster');
-      
+
       if (queryElement) {
         const items = queryElement.getChildren('item');
 
@@ -132,17 +169,24 @@ class XmppClient {
     return new Promise((resolve, reject) => {
       const myPresence = stanzas.presenceStanza("available", "Hola amigos!");
       this.xmpp.send(myPresence);
-
-      this.xmpp.on("stanza", (stanza) => {
+  
+      const presenceHandler = (stanza) => {
         if (stanza.is("presence")) {
           this.handlePresenceStanza(stanza);
           resolve();
         }
-      });
-
+      };
+  
+      this.xmpp.on("stanza", presenceHandler);
     });
   }
 
+  changePresenceMessage(message) {
+    return new Promise(async (resolve, reject) => {
+      const myPresence = stanzas.presenceStanza("available", message);
+      await this.xmpp.send(myPresence);
+    });
+  }
 
   handlePresenceStanza(stanza) {
     /*
@@ -192,6 +236,34 @@ class XmppClient {
     this.contacts.add(newContact);
 
   }
+
+  async joinGroupChat(room) {
+    return new Promise(async (resolve, reject) => {
+      const joinRoomStanza = stanzas.joinRoom(room, this.jid);
+      await this.xmpp.send(joinRoomStanza);
+
+      const presenceHandler = (stanza) => {
+        if (stanza.is("presence") && stanza.attrs.from === `${room}@conference.alumchat.xyz/${this.jid}`) {
+          const xElement = stanza.getChild("x", "http://jabber.org/protocol/muc#user");
+          if (xElement) {
+            const itemElement = xElement.getChild("item");
+            if (itemElement) {
+              const affiliation = itemElement.attrs.affiliation;
+              const role = itemElement.attrs.role;
+              console.log(`Bienvenido al groupchat ${room}!`);
+              console.log(`Affiliation: ${affiliation}`);
+              console.log(`Role: ${role}`);
+              this.xmpp.off("stanza", presenceHandler);
+              resolve();
+            }
+          }
+        }
+      };
+
+      this.xmpp.on("stanza", presenceHandler);
+    });
+  }
+
 }
 
 module.exports = XmppClient;
