@@ -174,7 +174,8 @@ const handleChoice = async (choice) => {
       break;
 
     case '2':
-      console.log('\n\n\n Seleccionaste la opción 2');
+      const newFriend = await questionAsync(">> Ingrese el JID del usuario a agregar: ");
+      await cliente.sendSubscription(newFriend);
       displayMainMenu();
       askForChoice();
       break;
@@ -184,8 +185,6 @@ const handleChoice = async (choice) => {
 
       // Solicitar JID
       const searchJID = await questionAsync(">> Ingrese el JID del usuario a buscar: ");
-
-      // await cliente.getContactInfo(searchJID);
 
       async function searchAndPrintContactInfo(searchJID) {
         await cliente.getContactsInfo();

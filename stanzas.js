@@ -53,6 +53,27 @@ const stanzas = {
         return contactStanza;
     },
 
+    addUser: (jid) => {
+        const addUserStanza = xml(
+            'presence',
+            { 
+                to: `${jid}@alumchat.xyz`, 
+                type: 'subscribe' }
+        );
+        return addUserStanza;
+    },
+
+    acceptRequest: (jid) => {
+        const request = xml(
+            "presence",
+            { 
+                to: `${jid}@alumchat.xyz`,
+                type: "subscribed"
+            },
+        );
+        return request;
+    },
+
     joinRoom: (roomJID, userJID) => {
         const joinRoomStanza = xml(
             "presence",
@@ -141,7 +162,7 @@ const stanzas = {
             {
                 id: `groupChatMessage`,
                 to: `${room}@conference.alumchat.xyz/${from}`,
-                type:"groupchat"
+                type: "groupchat"
             },
             xml("body", {}, message)
         );
@@ -155,13 +176,14 @@ const stanzas = {
         const msg = filePath.replace('./', '');
         const sendFileStanza = xml(
             'message',
-            { 
-                to: `${to}@alumchat.xyz`, 
-                type: 'chat' },
+            {
+                to: `${to}@alumchat.xyz`,
+                type: 'chat'
+            },
             xml('body', {}, msg),
             xml(
-                'attachment', 
-                { 
+                'attachment',
+                {
                     xmlns: 'urn:xmpp:attachment',
                     id: 'attachment1',
                     encoding: 'base64'
@@ -189,7 +211,7 @@ const stanzas = {
 
         return presenceStanza;
     },
-    
+
     generateConfigStanza: (room) => {
         const configStanza = xml(
             'iq',
@@ -199,7 +221,7 @@ const stanzas = {
             },
             xml('query', { xmlns: 'http://jabber.org/protocol/muc#owner' })
         );
-    
+
         return configStanza;
     }
 

@@ -73,7 +73,10 @@ class XmppClient {
           } else if (estado2 === 'Available') {
             console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} ahora está disponible\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
           } else if (stanza.attrs.type === 'subscribe') {
-            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} está solicitando suscripción\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+            // send accept subscribe
+            const friendStanza = stanzas.acceptRequest(from);
+            this.xmpp.send(friendStanza)
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} te ha añadido como amigo!\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
           }
         }
       });
@@ -119,6 +122,15 @@ class XmppClient {
       await this.xmpp.send(stanza);
       resolve();
       console.log(`\n!!! Invitación a ${to} para unirse a ${room} enviada exitosamente!`);
+    });
+  }
+  
+  sendSubscription = (to) => {
+    return new Promise(async (resolve, reject) => {
+      const stanza = stanzas.addUser(to);
+      await this.xmpp.send(stanza);
+      resolve();
+      console.log(`\n!!! Invitación a ${to} para ser tu amigo enviada exitosamente!`);
     });
   }
 
