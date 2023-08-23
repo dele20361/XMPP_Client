@@ -27,49 +27,56 @@ class XmppClient {
         },
       });
 
+      let estado2;
+
       // Manejar eventos
       this.xmpp.on('online', async (address) => {
         this.completeJID = address.toString();
       });
 
       this.xmpp.on("stanza", (stanza) => {
-        if (stanza.is('presence')) {
-          const from = stanza.attrs.from.split("@")[0];
+        // Verificar si es un mensaje con cuerpo
+        if (stanza.is('message') && stanza.getChild('body')) {
+          const from = stanza.attrs.from.split('@')[0];
+          const messageBody = stanza.getChildText('body');
+          console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Mensaje de ${from}: ${messageBody}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+        }
+        // Verificar si es un mensaje de tipo 'chat'
+        else if (stanza.attrs.type === 'chat') {
+          const from = stanza.attrs.from.split('@')[0];
+          const body = stanza.getChildText('body');
+
+          const coded_data = stanza.getChildText('attachment');
+          if (coded_data) {
+            const decodedData = Buffer.from(coded_data, 'base64');
+            const filepath = `./files/${body}`;
+            fs.writeFileSync(filepath, decodedData);
+            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Archivo recibido de ${from}: ${body}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
+          }
+        }
+        // Verificar si es una stanza de presencia
+        else if (stanza.is('presence')) {
+          const from = stanza.attrs.from.split('@')[0];
           const show = stanza.getChildText("show");
-          let estado2;
-          if (show === "chat") {
-            estado2 = "Available";
-          } else if (show) {
-            estado2 = show;
-          } else {
-            estado2 = "Available";
+          let estado2 = "Available";
+
+          if (stanza.attrs.type !== 'unavailable') {
+            if (show === "chat") {
+              estado2 = "Available";
+            } else if (show) {
+              estado2 = show;
+            }
           }
 
-          // Verificar el atributo 'type' en la stanza de presencia
-          if (stanza.is('message') && stanza.attrs.id === 'privateChatMessage') {
-            const messageBody = stanza.getChildText('body');
-            console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Mensaje de ${from}: ${messageBody}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
-          }
-          else if (stanza.attrs.type === 'unavailable') {
-            estado2 = "unavailable"
+          if (stanza.attrs.type === 'unavailable') {
             console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} ahora no está disponible\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
           } else if (estado2 === 'Available') {
             console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} ahora está disponible\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
           } else if (stanza.attrs.type === 'subscribe') {
             console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! ${from} está solicitando suscripción\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
-          } else if (stanza.attrs.type == 'chat') {       
-            // Recibir archivos adjuntos
-            const coded_data = stanza.getChildText('attachment')
-            if (coded_data) {
-                const decodedData = Buffer.from(coded_data, 'base64');
-                const filepath = `./files/${body}`
-                fs.writeFileSync(filepath, decodedData);
-                console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Archivo de ${from} guardado en ${filepath}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`)
-            }
           }
         }
       });
-      
 
 
 
