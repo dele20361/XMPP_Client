@@ -1,8 +1,7 @@
 const readline = require('readline');
 const XmppClient = require('./xmppClient');
 const { xml, client } = require('@xmpp/client');
-const { SimpleXMPP } = require('simple-xmpp');
-const { setMaxIdleHTTPParsers } = require('http');
+const registration = require('./register')
 
 let cliente;
 let jid;
@@ -54,10 +53,22 @@ const displayGroupchatMenu = () => {
 const handleLoginChoice = async (choice) => {
   switch (choice) {
     case '1':
-      // Lógica para crear una cuenta
-      // ...
-      // Luego de crear la cuenta, continuamos al menú principal
-      displayMainMenu();
+      const newJID = await questionAsync(">> Ingresa el jid del usuario nuevo: ");
+      const newpass = await questionAsync(">> Ingresa la contraseña del usuario nuevo: ");
+      await registration.register(newJID, newpass);
+
+      jid = newJID;
+      password = newpass;
+
+      const isConnected = await start();
+      if (isConnected === 0) {
+        displayMainMenu();
+        askForChoice();
+      } else {
+        rl.close();
+        process.exit(0);
+      }
+
       askForChoice();
       break;
 

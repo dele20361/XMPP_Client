@@ -78,8 +78,6 @@ class XmppClient {
         }
       });
 
-
-
       // Iniciar la conexión
       await this.xmpp.start();
 
