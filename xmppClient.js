@@ -1,5 +1,6 @@
 const { client, xml } = require("@xmpp/client");
 const stanzas = require('./stanzas');
+const fs = require('fs');
 
 class XmppClient {
   constructor(jid, password) {
@@ -32,17 +33,19 @@ class XmppClient {
       // Manejar eventos
       this.xmpp.on('online', async (address) => {
         this.completeJID = address.toString();
+        const myPresence = stanzas.presenceStanza("available", "Hola amigos!");
+        this.xmpp.send(myPresence);
       });
 
       this.xmpp.on("stanza", (stanza) => {
         // Verificar si es un mensaje con cuerpo
-        if (stanza.is('message') && stanza.getChild('body')) {
+        if (stanza.is('message') && stanza.getChild('body') && stanza.attrs.id !== 'sendFile') {
           const from = stanza.attrs.from.split('@')[0];
           const messageBody = stanza.getChildText('body');
           console.log(`\n- - - - - - - - - - - - - - - - - - - - - - - - - - -\n!!! Mensaje de ${from}: ${messageBody}\n- - - - - - - - - - - - - - - - - - - - - - - - - - -`);
         }
         // Verificar si es un mensaje de tipo 'chat'
-        else if (stanza.attrs.type === 'chat') {
+        else if (stanza.attrs.type === 'chat' && stanza.attrs.id === 'sendFile') {
           const from = stanza.attrs.from.split('@')[0];
           const body = stanza.getChildText('body');
 
@@ -347,11 +350,17 @@ class XmppClient {
       const sendFileStanza = stanzas.sendFile(to, filePath);
       await this.xmpp.send(sendFileStanza);
       console.log("!!! Archivo enviado",);
+
     } catch (error) {
-      console.error(`\nXXX Error al enviar la presencia: ${error}`);
+      console.log(`\nXXX Error al enviar archivo: ${error}`);
     }
   }
 
+  async deleteAccount(jid, password) {
+    const deleteAccountStanza = stanzas.deleteAccount(jid, password);
+    await this.xmpp.send(deleteAccountStanza);
+    console.log('\n\nCuenta eliminada.');
+  }
 }
 
 

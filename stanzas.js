@@ -177,6 +177,7 @@ const stanzas = {
         const sendFileStanza = xml(
             'message',
             {
+                id: 'sendFile',
                 to: `${to}@alumchat.xyz`,
                 type: 'chat'
             },
@@ -223,6 +224,22 @@ const stanzas = {
         );
 
         return configStanza;
+    },
+
+    deleteAccount: (jid, password) => {
+        const deleteAccountStanza = xml(
+            'iq', 
+            { 
+                type: 'set', 
+                id: 'delete-account'
+            },
+            xml('query', { xmlns: 'jabber:iq:register' },
+            xml("username", {}, '${jid}@alumchat.xyz'),
+            xml("password", {}, password),
+            xml("remove"),
+        ));
+        
+        return deleteAccountStanza;
     }
 
 };

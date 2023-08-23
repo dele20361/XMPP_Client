@@ -30,6 +30,7 @@ const displayMainMenu = () => {
   console.log('6. Editar mensaje de presencia');
   console.log('7. Enviar archivo');
   console.log('8. Cerrar Sesión');
+  console.log('9. Eliminar cuenta');
   console.log('---------------------------------------------');
 };
 
@@ -255,12 +256,23 @@ const handleChoice = async (choice) => {
 
       await cliente.sendFile(toFile, filePath);
 
+      displayMainMenu();
+      askForChoice();
+      break;
+
     case '8':
       rl.close();
       await cliente.disconnect();
       console.log(`Adiós ${jid}!`);
       process.exit();
       break;
+    
+    case '9':
+      await cliente.deleteAccount(jid, password);
+      rl.close();
+      process.exit();
+
+    break;
 
     default:
       console.log('\n\n\n Opción no válida');
